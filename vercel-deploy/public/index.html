@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Prediksi Saham LSTM</title>
+    <meta name="description" content="Dashboard prediksi harga saham menggunakan model LSTM (Long Short-Term Memory) untuk analisis tren pasar saham.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: rgba(17, 24, 39, 0.85);
+            --bg-glass: rgba(255, 255, 255, 0.04);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-glow: rgba(99, 102, 241, 0.3);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-blue: #6366f1;
+            --accent-blue-light: #818cf8;
+            --accent-green: #10b981;
+            --accent-green-glow: rgba(16, 185, 129, 0.15);
+            --accent-red: #ef4444;
+            --accent-red-glow: rgba(239, 68, 68, 0.15);
+            --accent-amber: #f59e0b;
+            --gradient-blue: linear-gradient(135deg, #6366f1, #8b5cf6);
+            --gradient-green: linear-gradient(135deg, #10b981, #34d399);
+            --gradient-card: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.04));
+            --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.4);
+            --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.15);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(ellipse 600px 400px at 20% 20%, rgba(99, 102, 241, 0.08), transparent),
+                radial-gradient(ellipse 500px 300px at 80% 80%, rgba(139, 92, 246, 0.06), transparent),
+                radial-gradient(ellipse 400px 400px at 50% 50%, rgba(16, 185, 129, 0.04), transparent);
+            z-index: 0;
+            pointer-events: none;
+            animation: bgPulse 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes bgPulse {
+            0% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+
+        .container {
+            max-width: 880px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+            padding: 40px 20px 30px;
+        }
+
+        .header-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-subtle);
+            border-radius: 50px;
+            padding: 6px 16px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--accent-blue-light);
+            margin-bottom: 16px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .header-badge .dot {
+            width: 6px; height: 6px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        h1 {
+            font-size: clamp(26px, 4vw, 36px);
+            font-weight: 800;
+            background: linear-gradient(135deg, #f1f5f9 30%, #818cf8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.2;
+            margin-bottom: 8px;
+        }
+
+        .header-subtitle {
+            color: var(--text-secondary);
+            font-size: 15px;
+            font-weight: 400;
+        }
+
+        /* Card component */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: var(--border-glow);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .card-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title .icon {
+            font-size: 16px;
+        }
+
+        /* Preset buttons */
+        .preset-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn-preset {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            padding: 12px 10px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            font-family: inherit;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-preset:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--accent-blue);
+            color: var(--text-primary);
+            transform: translateY(-2px);
+        }
+
+        .btn-preset.active {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: var(--accent-blue);
+            color: var(--accent-blue-light);
+        }
+
+        .btn-preset .emoji {
+            font-size: 22px;
+        }
+
+        /* Input */
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 14px 16px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 15px;
+            font-family: 'Inter', monospace;
+            transition: all 0.25s ease;
+            outline: none;
+        }
+
+        .input-field:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        .input-field::placeholder {
+            color: var(--text-muted);
+        }
+
+        /* Submit button */
+        .btn-submit {
+            width: 100%;
+            padding: 15px;
+            background: var(--gradient-blue);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-submit:active {
+            transform: translateY(0);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-submit .spinner {
+            display: none;
+            width: 18px; height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        .btn-submit.loading .spinner { display: block; }
+        .btn-submit.loading .btn-text { display: none; }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Result card */
+        .result-card {
+            background: var(--gradient-card);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 16px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+            animation: slideUp 0.5s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .result-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--gradient-green);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .result-value {
+            font-size: clamp(28px, 5vw, 38px);
+            font-weight: 800;
+            background: var(--gradient-green);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Error card */
+        .error-card {
+            background: var(--accent-red-glow);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 12px;
+            padding: 16px 20px;
+            color: #fca5a5;
+            font-size: 14px;
+            margin-bottom: 20px;
+            animation: slideUp 0.4s ease-out;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .error-card .error-icon { font-size: 18px; }
+
+        /* Chart */
+        .chart-wrapper {
+            position: relative;
+            padding: 8px 0;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 24px 0 8px;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .footer a {
+            color: var(--accent-blue-light);
+            text-decoration: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            body { padding: 12px; }
+            .card { padding: 20px; }
+            .preset-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Hidden */
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-badge">
+                <span class="dot"></span>
+                LSTM Neural Network
+            </div>
+            <h1>Dashboard Prediksi Saham</h1>
+            <p class="header-subtitle">Analisis tren & prediksi harga saham menggunakan deep learning</p>
+        </div>
+
+        <!-- Input Card -->
+        <div class="card">
+            <div class="card-title">
+                <span class="icon">⚡</span>
+                Sampel Data Cepat
+            </div>
+            <div class="preset-grid">
+                <button class="btn-preset" onclick="fillData('1500, 1520, 1510, 1530, 1540', this)" id="preset-up">
+                    <span class="emoji">📈</span>
+                    Tren Naik
+                </button>
+                <button class="btn-preset" onclick="fillData('3000, 2950, 2900, 2820, 2800', this)" id="preset-down">
+                    <span class="emoji">📉</span>
+                    Tren Turun
+                </button>
+                <button class="btn-preset" onclick="fillData('5000, 5050, 4980, 5020, 5010', this)" id="preset-stable">
+                    <span class="emoji">🔄</span>
+                    Stabil
+                </button>
+            </div>
+
+            <div class="input-group">
+                <label for="data-input">Atau masukkan data manual (pisahkan koma)</label>
+                <input type="text" id="data-input" class="input-field" 
+                       value="1500, 1520, 1510, 1530, 1540" 
+                       placeholder="Contoh: 1500, 1520, 1510, 1530, 1540">
+            </div>
+
+            <button class="btn-submit" id="submit-btn" onclick="runPrediction()">
+                <span class="btn-text">🚀 Jalankan Prediksi</span>
+                <div class="spinner"></div>
+            </button>
+        </div>
+
+        <!-- Error -->
+        <div class="error-card hidden" id="error-card">
+            <span class="error-icon">⚠️</span>
+            <span id="error-text"></span>
+        </div>
+
+        <!-- Result -->
+        <div class="result-card hidden" id="result-card">
+            <div class="result-label">Estimasi Harga Saham Selanjutnya</div>
+            <div class="result-value" id="result-value"></div>
+        </div>
+
+        <!-- Chart -->
+        <div class="card hidden" id="chart-card">
+            <div class="card-title">
+                <span class="icon">📊</span>
+                Grafik Tren & Prediksi
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="stockChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            Powered by ONNX Runtime &bull; LSTM Neural Network &bull; Chart.js
+        </div>
+    </div>
+
+    <script>
+        let chartInstance = null;
+
+        function fillData(val, btnEl) {
+            document.getElementById('data-input').value = val;
+            // Update active state
+            document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+            if (btnEl) btnEl.classList.add('active');
+        }
+
+        async function runPrediction() {
+            const rawInput = document.getElementById('data-input').value.trim();
+            const submitBtn = document.getElementById('submit-btn');
+            const errorCard = document.getElementById('error-card');
+            const resultCard = document.getElementById('result-card');
+            const chartCard = document.getElementById('chart-card');
+
+            // Validate
+            if (!rawInput) {
+                showError('Masukkan data harga saham terlebih dahulu.');
+                return;
+            }
+
+            // Parse input
+            let inputList;
+            try {
+                inputList = rawInput.split(',').map(x => {
+                    const num = parseFloat(x.trim());
+                    if (isNaN(num)) throw new Error(`"${x.trim()}" bukan angka valid`);
+                    return num;
+                });
+            } catch (e) {
+                showError(e.message);
+                return;
+            }
+
+            // Show loading
+            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
+            errorCard.classList.add('hidden');
+            resultCard.classList.add('hidden');
+            chartCard.classList.add('hidden');
+
+            try {
+                const response = await fetch('/api/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: inputList })
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    showError(result.error || 'Terjadi kesalahan pada server.');
+                    return;
+                }
+
+                // Show result
+                resultCard.classList.remove('hidden');
+                document.getElementById('result-value').textContent = result.prediction_text;
+
+                // Draw chart
+                chartCard.classList.remove('hidden');
+                drawChart(result.labels, result.historical_data, result.prediction_data);
+
+            } catch (e) {
+                showError('Gagal terhubung ke server. Pastikan koneksi internet Anda stabil.');
+            } finally {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+            }
+        }
+
+        function showError(msg) {
+            const errorCard = document.getElementById('error-card');
+            document.getElementById('error-text').textContent = msg;
+            errorCard.classList.remove('hidden');
+        }
+
+        function drawChart(labels, historicalData, predictionData) {
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            const ctx = document.getElementById('stockChart').getContext('2d');
+            
+            // Gradient for historical line
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(99, 102, 241, 0.2)');
+            gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Harga Historis',
+                            data: historicalData,
+                            borderColor: '#818cf8',
+                            backgroundColor: gradient,
+                            borderWidth: 2.5,
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#818cf8',
+                            pointBorderColor: '#1e1b4b',
+                            pointBorderWidth: 2,
+                            pointHoverRadius: 7
+                        },
+                        {
+                            label: 'Prediksi LSTM',
+                            data: predictionData,
+                            borderColor: '#34d399',
+                            borderDash: [6, 4],
+                            borderWidth: 3,
+                            pointRadius: 6,
+                            pointBackgroundColor: '#10b981',
+                            pointBorderColor: '#064e3b',
+                            pointBorderWidth: 2,
+                            pointHoverRadius: 9,
+                            tension: 0.3,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#94a3b8',
+                                font: { family: 'Inter', size: 12 },
+                                boxWidth: 12,
+                                boxHeight: 12,
+                                borderRadius: 3,
+                                useBorderRadius: true,
+                                padding: 16
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(17, 24, 39, 0.95)',
+                            titleColor: '#f1f5f9',
+                            bodyColor: '#94a3b8',
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderWidth: 1,
+                            cornerRadius: 8,
+                            padding: 12,
+                            titleFont: { family: 'Inter', weight: '600' },
+                            bodyFont: { family: 'Inter' },
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.parsed.y !== null) {
+                                        return context.dataset.label + ': Rp ' + context.parsed.y.toLocaleString('id-ID');
+                                    }
+                                    return null;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            title: { 
+                                display: true, 
+                                text: 'Harga Saham (Rp)',
+                                color: '#64748b',
+                                font: { family: 'Inter', size: 12, weight: '500' }
+                            },
+                            ticks: { 
+                                color: '#64748b',
+                                font: { family: 'Inter', size: 11 },
+                                callback: function(value) {
+                                    return 'Rp ' + value.toLocaleString('id-ID');
+                                }
+                            },
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            border: { color: 'rgba(255,255,255,0.08)' }
+                        },
+                        x: {
+                            title: { 
+                                display: true, 
+                                text: 'Waktu / Hari',
+                                color: '#64748b',
+                                font: { family: 'Inter', size: 12, weight: '500' }
+                            },
+                            ticks: { 
+                                color: '#64748b',
+                                font: { family: 'Inter', size: 11 }
+                            },
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            border: { color: 'rgba(255,255,255,0.08)' }
+                        }
+                    },
+                    animation: {
+                        duration: 800,
+                        easing: 'easeOutQuart'
+                    }
+                }
+            });
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('data-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') runPrediction();
+        });
+    </script>
+</body>
+</html>

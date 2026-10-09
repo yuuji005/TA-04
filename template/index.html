@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Prediksi Saham LSTM</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; margin: 0; padding: 25px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        h2 { color: #1a252f; text-align: center; margin-bottom: 25px; }
+        label { font-weight: 600; color: #495057; display: block; margin-bottom: 8px; }
+        input[type="text"] { width: 100%; padding: 12px; border: 1px solid #ced4da; border-radius: 6px; box-sizing: border-box; font-size: 14px; margin-bottom: 15px; }
+        
+        /* Style Tombol Preset */
+        .preset-container { display: flex; gap: 10px; margin-bottom: 15px; }
+        .btn-preset { background-color: #e9ecef; color: #495057; border: 1px solid #adb5bd; padding: 8px 12px; border-radius: 5px; font-size: 13px; cursor: pointer; font-weight: 600; flex: 1; }
+        .btn-preset:hover { background-color: #dee2e6; }
+        
+        button[type="submit"] { width: 100%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.2s; }
+        button[type="submit"]:hover { background-color: #218838; }
+        .result-card { margin-top: 25px; padding: 15px; background: #e8f4ea; border-left: 5px solid #28a745; border-radius: 4px; text-align: center; }
+        .result-title { font-size: 14px; color: #555; }
+        .result-value { font-size: 26px; font-weight: bold; color: #1e7e34; margin-top: 5px; }
+        .chart-container { margin-top: 30px; position: relative; }
+        .error { margin-top: 20px; padding: 15px; background-color: #f8d7da; color: #721c24; border-radius: 6px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>📈 Dashboard Prediksi Harga Saham (LSTM)</h2>
+        
+        <form action="/predict" method="post">
+            <label>Pilih Sampel Data Cepat:</label>
+            <div class="preset-container">
+                <button type="button" class="btn-preset" onclick="fillData('1500, 1520, 1510, 1530, 1540')">📊 Tren Naik</button>
+                <button type="button" class="btn-preset" onclick="fillData('3000, 2950, 2900, 2820, 2800')">📉 Tren Turun</button>
+                <button type="button" class="btn-preset" onclick="fillData('5000, 5050, 4980, 5020, 5010')">🔄 Stabil</button>
+            </div>
+
+            <label for="data">Atau Isi Manual (Pisahkan Koma):</label>
+            <input type="text" id="data" name="data" value="{{ raw_input if raw_input else '1500, 1520, 1510, 1530, 1540' }}" placeholder="Contoh: 1500, 1520, 1510, 1530, 1540" required>
+            <button type="submit">Jalankan Prediksi</button>
+        </form>
+
+        {% if error_text %}
+            <div class="error">{{ error_text }}</div>
+        {% endif %}
+
+        {% if prediction_text %}
+            <div class="result-card">
+                <div class="result-title">Estimasi Harga Saham Selanjutnya:</div>
+                <div class="result-value">{{ prediction_text }}</div>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="stockChart"></canvas>
+            </div>
+
+            <script>
+                const ctx = document.getElementById('stockChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: {{ labels | tojson }},
+                        datasets: [
+                            {
+                                label: 'Harga Historis',
+                                data: {{ historical_data | tojson }},
+                                borderColor: '#007bff',
+                                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                                borderWidth: 2,
+                                tension: 0.2,
+                                fill: true
+                            },
+                            {
+                                label: 'Prediksi LSTM',
+                                data: {{ prediction_data | tojson }},
+                                borderColor: '#28a745',
+                                borderDash: [5, 5],
+                                borderWidth: 3,
+                                pointRadius: 6,
+                                pointBackgroundColor: '#28a745',
+                                tension: 0.2
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: { display: true, text: 'Grafik Tren & Hasil Prediksi Saham' }
+                        },
+                        scales: {
+                            y: { title: { display: true, text: 'Harga Saham (Rp)' } },
+                            x: { title: { display: true, text: 'Waktu / Hari' } }
+                        }
+                    }
+                });
+            </script>
+        {% endif %}
+    </div>
+
+    <script>
+        function fillData(val) {
+            document.getElementById('data').value = val;
+        }
+    </script>
+</body>
+</html>
